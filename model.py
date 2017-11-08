@@ -34,47 +34,25 @@ class U_Net(object):
             self.saver = tf.train.Saver(max_to_keep=2)
 
     def _build_model(self):
-        immy_a,_ ,_,immy_a_sem= self.build_input_image_op(os.path.join(self.dataset_dir,'trainA'),False)
-        immy_b,_ ,_,immy_b_sem= self.build_input_image_op(os.path.join(self.dataset_dir,'trainB'),False)
+        immy_a,_ ,_,immy_a_sem= self.build_input_image_op(os.path.join(self.dataset_dir,'train'),False)
 
-        self.real_A,self.real_B, self.real_A_sem,self.real_B_sem = tf.train.shuffle_batch([immy_a,immy_b,immy_a_sem,immy_b_sem],self.batch_size,1000,600,8)
+        self.input_images, self.input_sem_gt = tf.train.shuffle_batch([immy_a,immy_a_sem],self.batch_size,1000,600,8)
 
-        self.fake_A = self.generator(self.real_B, self.options, False, name="generatorB2A")
-        self.DA_fake,self.DSEM_A_fake = self.discriminator(self.fake_A, self.options, reuse=False, name="discriminatorA")
-        self.DA_real, self.DSEM_A_real = self.discriminator(self.real_A, self.options, reuse=True, name="discriminatorA")
+        self.input_sem_pred = u_net_model(self.input_images,self.options, False, name = 'u_net')
 
-        self.dsem_loss_real =  self.criterionSem(self.DSEM_A_real,self.real_A_sem)
-        self.dsem_loss_fake= self.criterionSem(self.DSEM_A_fake, self.real_B_sem)
+        self.sem_loss =  self.criterionSem(self.input_sem_pred,self.input_sem_gt)
 
-        self.g_loss_b2a = (self.criterionGAN(self.DA_fake, tf.ones_like(self.DA_fake)) + self.sem_G_fake * self.dsem_loss_fake)/2 #+ self.L1_lambda * abs_criterion(self.real_A, self.fake_A)
-
+        self.sem_loss_sum = tf.summary.scalar("sem_loss",self.sem_loss)
         
-        self.da_loss_real = self.criterionGAN(self.DA_real, tf.ones_like(self.DA_real))
-        self.da_loss_fake = self.criterionGAN(self.DA_fake, tf.zeros_like(self.DA_fake)) 
-        
-        self.da_loss = (self.da_loss_real  + self.sem_DA_real * self.dsem_loss_real + self.da_loss_fake + self.sem_DA_fake * self.dsem_loss_fake ) / 4
+       
 
-        self.g_b2a_sum = tf.summary.scalar("g_loss_b2a", self.g_loss_b2a)
-        self.da_loss_sum = tf.summary.scalar("da_loss", self.da_loss)
+        immy_test,path_test,_,immy_test_sem = self.build_input_image_op(os.path.join(self.dataset_dir,'test'),True)
 
-        self.da_loss_real_sum = tf.summary.scalar("da_loss_real", self.da_loss_real)
-        self.dsmea_loss_real_sum = tf.summary.scalar("dsema_loss_real",self.dsem_loss_real)
-        
-        self.da_loss_fake_sum = tf.summary.scalar("da_loss_fake", self.da_loss_fake)
-        self.dsmea_loss_fake_sum = tf.summary.scalar("dsema_loss_fake",self.dsem_loss_fake)
-
-        self.da_sum = tf.summary.merge(
-            [self.da_loss_sum, self.da_loss_real_sum, self.dsmea_loss_real_sum,  self.da_loss_fake_sum, self.dsmea_loss_fake_sum]
-        )
-
-        immy_test_b,path_b,_,_ = self.build_input_image_op(os.path.join(self.dataset_dir,'testB'),True)
-
-        self.test_B,self.test_path_b = tf.train.batch([immy_test_b,path_b],1,2,100)
-        self.testA = self.generator(self.test_B, self.options, True, name="generatorB2A")
-        _, self.test_B_sem = self.discriminator(self.testA,self.options, True, name = 'discriminatorA')
+        self.test_images,self.test_path, self.test_sem_gt = tf.train.batch([immy_test,path_test,immy_test_sem],1,2,100)
+         
+        self.test_sem_pred = u_net_model(self.test_images,self.options, True, name = 'u_net')
         t_vars = tf.trainable_variables()
-        self.da_vars = [var for var in t_vars if 'discriminatorA' in var.name]
-        self.g_vars_b2a = [var for var in t_vars if 'generatorB2A' in var.name]
+        self.u_net_vars = [var for var in t_vars if 'u_net' in var.name]
 
     def build_input_image_op(self,dir,is_test=False, num_epochs=None):
         def _parse_function(image_tensor):
@@ -129,36 +107,27 @@ class U_Net(object):
 
     def train(self, args):
         """Train cyclegan"""
-        self.da_optim = tf.train.AdamOptimizer(args.lr, beta1=args.beta1) \
-            .minimize(self.da_loss, var_list=self.da_vars)
-        self.g_b2a_optim = tf.train.AdamOptimizer(args.lr, beta1=args.beta1) \
-            .minimize(self.g_loss_b2a, var_list=self.g_vars_b2a)
+        self.u_net_optim = tf.train.AdamOptimizer(args.lr, beta1=args.beta1) \
+            .minimize(self.sem_loss, var_list=self.u_net_vars)
 
         image_summaries = []
 
         #summaries for training
-        tf.summary.image('A_Real',self.real_A)
-        tf.summary.image('A_Real_Sem',self.real_A_sem)
-        tf.summary.image('B_Real',self.real_B)
-        tf.summary.image('B_Real_Sem',self.real_B_sem)
-        tf.summary.image('B_to_A',self.fake_A)
+        tf.summary.image('input',self.input_images)
+        tf.summary.image('ground trouth sem',self.input_sem_gt)
+
+        tf.summary.image('test',self.test_images)
+        tf.summary.image('test sem gt',self.test_sem_gt)
+
+        input_sem_pred_image = tf.argmax(self.input_sem_pred, dimension=3, name="prediction")
+        input_sem_pred_image = tf.expand_dims(input_sem_pred_image, dim=3)
         
-        tf.summary.image('testB',self.test_B)
-        tf.summary.image('testB_generated',self.testA)
+        test_sem_pred_image = tf.argmax(self.test_sem_pred, dimension=3, name="prediction")
+        test_sem_pred_image = tf.expand_dims(test_sem_pred_image, dim=3)
 
-        pred_sem_real_image = tf.argmax(self.DSEM_A_real, dimension=3, name="prediction")
-        pred_sem_real_image = tf.expand_dims(pred_sem_real_image, dim=3)
-
-        pred_sem_fake_image = tf.argmax(self.DSEM_A_fake, dimension=3, name="prediction")
-        pred_sem_fake_image = tf.expand_dims(pred_sem_fake_image, dim=3)
+        tf.summary.image('pred_sem_input', tf.cast(input_sem_pred_image,tf.uint8))
+        tf.summary.image('pred_sem_test', tf.cast(test_sem_pred_image,tf.uint8))
         
-        test_B_sem_image = tf.argmax(self.test_B_sem, dimension=3, name="prediction")
-        test_B_sem_image = tf.expand_dims(test_B_sem_image, dim=3)
-
-        tf.summary.image('pred_sem_real', tf.cast(pred_sem_real_image,tf.uint8))
-        tf.summary.image('pred_sem_fake', tf.cast(pred_sem_fake_image,tf.uint8))
-        tf.summary.image('pred_sem_test',tf.cast(test_B_sem_image,tf.uint8))
-
         init_op = [tf.global_variables_initializer(),tf.local_variables_initializer()]
         self.sess.run(init_op)
         self.writer = tf.summary.FileWriter(args.checkpoint_dir, self.sess.graph)
@@ -183,10 +152,8 @@ class U_Net(object):
 
             for idx in range(0, batch_idxs):
 
-                
-
                 # Update G network + Update D network
-                self.sess.run([self.g_b2a_optim,self.da_optim])
+                self.sess.run([self.u_net_optim])
                 
                 counter += 1
                 print(("Epoch: [%2d] [%4d/%4d] time: %4.4f" \
