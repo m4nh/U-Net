@@ -37,22 +37,17 @@ class U_Net(object):
         immy_a,_ ,_,immy_a_sem= self.build_input_image_op(os.path.join(self.dataset_dir,'train'),False)
 
         self.input_images, self.input_sem_gt = tf.train.shuffle_batch([immy_a,immy_a_sem],self.batch_size,1000,600,8)
-
+                 
         self.input_sem_pred = u_net_model(self.input_images,self.options, False, name = 'u_net')
-
         self.sem_loss =  self.criterionSem(self.input_sem_pred,self.input_sem_gt)
 
         self.sem_loss_sum = tf.summary.scalar("sem_loss",self.sem_loss)
-        
-       
 
         immy_test,path_test,_,immy_test_sem = self.build_input_image_op(os.path.join(self.dataset_dir,'test'),True)
 
         self.test_images,self.test_path, self.test_sem_gt = tf.train.batch([immy_test,path_test,immy_test_sem],1,2,100)
          
         self.test_sem_pred = u_net_model(self.test_images,self.options, True, name = 'u_net')
-        t_vars = tf.trainable_variables()
-        self.u_net_vars = [var for var in t_vars if 'u_net' in var.name]
 
     def build_input_image_op(self,dir,is_test=False, num_epochs=None):
         def _parse_function(image_tensor):
@@ -108,7 +103,7 @@ class U_Net(object):
     def train(self, args):
         """Train cyclegan"""
         self.u_net_optim = tf.train.AdamOptimizer(args.lr, beta1=args.beta1) \
-            .minimize(self.sem_loss, var_list=self.u_net_vars)
+            .minimize(self.sem_loss)
 
         image_summaries = []
 
@@ -146,13 +141,14 @@ class U_Net(object):
         tf.train.start_queue_runners()
         print('Thread running')
 
+        #print(self.sess.run(self.sem_loss))
         for epoch in range(args.epoch):
             print('Start epoch: {}'.format(epoch))
             batch_idxs = args.num_sample
 
             for idx in range(0, batch_idxs):
-
-                # Update G network + Update D network
+                
+                # Update network
                 self.sess.run([self.u_net_optim])
                 
                 counter += 1

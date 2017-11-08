@@ -10,7 +10,7 @@ def u_net_model(image, options, reuse=False, name="U-Net"):
             tf.get_variable_scope().reuse_variables()
         else:
             assert tf.get_variable_scope().reuse == False
-
+        
         # image is (256 x 256 x input_c_dim)
         e1 = conv2d(image, options.gf_dim, name='g_e1_conv')
         # e1 is (128 x 128 x self.gf_dim)
@@ -18,7 +18,6 @@ def u_net_model(image, options, reuse=False, name="U-Net"):
         # e2 is (64 x 64 x self.gf_dim*2)
         e3 = instance_norm(conv2d(lrelu(e2), options.gf_dim*4, name='g_e3_conv'), 'g_bn_e3')
         # e3 is (32 x 32 x self.gf_dim*4)
-
         e4 = instance_norm(conv2d(lrelu(e3), options.gf_dim*8, name='g_e4_conv'), 'g_bn_e4')
         # e4 is (16 x 16 x self.gf_dim*8)
         e5 = instance_norm(conv2d(lrelu(e4), options.gf_dim*8, name='g_e5_conv'), 'g_bn_e5')
@@ -58,10 +57,10 @@ def u_net_model(image, options, reuse=False, name="U-Net"):
         d7 = tf.concat([instance_norm(d7, 'g_bn_d7'), e1], 3)
         # d7 is (128 x 128 x self.gf_dim*1*2)
 
-        d8 = deconv2d(tf.nn.relu(d7), options.output_c_dim, name='g_d8')
+        d8 = deconv2d(tf.nn.relu(d7), 34, name='g_d8')
         # d8 is (256 x 256 x output_c_dim)
 
-        return tf.nn.tanh(d8)
+        return d8
 
 def sem_criterion(logits,labels):
     labels = tf.cast(labels,tf.int32)
