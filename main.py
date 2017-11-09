@@ -20,7 +20,7 @@ parser.add_argument('--beta1', dest='beta1', type=float, default=0.5, help='mome
 parser.add_argument('--flip', dest='flip', type=bool, default=True, help='if flip the images for data argumentation')
 parser.add_argument('--phase', dest='phase', help='train, test', required=True, choices=['train','test'])
 parser.add_argument('--checkpoint_dir', dest='checkpoint_dir', default='./checkpoint', help='models are saved here')
-parser.add_argument('--test_dir', dest='test_dir', default='./test', help='test sample are saved here')
+parser.add_argument('--test_dir', dest='test_dir', default='./testOut', help='test sample are saved here')
 parser.add_argument('--ngf', dest='ngf', type=int, default=32, help='# of gen filters in first conv layer')
 parser.add_argument('--ndf', dest='ndf', type=int, default=64, help='# of discri filters in first conv layer')
 args = parser.parse_args()

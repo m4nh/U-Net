@@ -1,3 +1,4 @@
 *.png
 checkpoint*
 *.pyc
+testOut*

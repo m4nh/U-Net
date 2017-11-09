@@ -214,12 +214,15 @@ class U_Net(object):
             return False
 
     def test(self, args):
-        """Test cyclegan""" 
-        sample_op, sample_path,im_shape = self.build_input_image_op(self.dataset_dir,is_test=True,num_epochs=1)
-        sample_batch,path_batch,im_shapes = tf.train.batch([sample_op,sample_path,im_shape],batch_size=self.batch_size,num_threads=4,capacity=self.batch_size*50,allow_smaller_final_batch=True)
-        gen_name='generatorA2B' if args.which_direction=="AtoB" else 'generatorB2A'
-        cycle_image_batch = self.generator(sample_batch,self.options,name=gen_name)
-
+        """Test""" 
+        sample_op, sample_path,im_shape,sample_op_sem = self.build_input_image_op(os.path.join(self.dataset_dir,'testA'),is_test=True,num_epochs=1)
+        sample_batch,path_batch,im_shapes,sample_sem_batch = tf.train.batch([sample_op,sample_path,im_shape,sample_op_sem],batch_size=self.batch_size,num_threads=4,capacity=self.batch_size*50,allow_smaller_final_batch=True)
+               
+        sem_images = u_net_model(sample_batch, self.options,name='u_net')
+        
+        sem_images_out = tf.argmax(sem_images, dimension=3, name="prediction")
+        sem_images_out = tf.cast(tf.expand_dims(sem_images_out, dim=3),tf.uint8)
+        
         #init everything
         self.sess.run([tf.global_variables_initializer(),tf.local_variables_initializer()])
 
@@ -237,39 +240,29 @@ class U_Net(object):
         if not os.path.exists(args.test_dir): #python 2 is dumb...
             os.makedirs(args.test_dir)
 
-        index_path = os.path.join(args.test_dir, '{0}_index.html'.format(args.which_direction))
-        index = open(index_path, "w+")
-        index.write("<html><body><table><tr>")
-        index.write("<th>name</th><th>input</th><th>output</th></tr>")
-
         print('Starting')
         batch_num=0
-        while True:
+        while batch_num*args.batch_size <= args.num_sample:
             try:
-                print('Processed images: {}'.format(batch_num*args.batch_size), end='\r')
-                fake_imgs,sample_images,sample_paths,im_sps = self.sess.run([cycle_image_batch,sample_batch,path_batch,im_shapes])
+                print('Processed images: {}'.format(batch_num*args.batch_size), end='\n')
+                pred_sem_imgs,sample_images,sample_paths,im_sps, sem_gt = self.sess.run([sem_images_out,sample_batch,path_batch,im_shapes,sample_sem_batch])
                 #iterate over each sample in the batch
-                for rr in range(fake_imgs.shape[0]):
+                for rr in range(pred_sem_imgs.shape[0]):
                     #create output destination
                     dest_path = sample_paths[rr].decode('UTF-8').replace(self.dataset_dir,args.test_dir)
                     parent_destination = os.path.abspath(os.path.join(dest_path, os.pardir))
                     if not os.path.exists(parent_destination):
                         os.makedirs(parent_destination)
 
-                    fake_img = ((fake_imgs[rr]+1)/2)*255
                     im_sp = im_sps[rr]
-                    fake_img = misc.imresize(fake_img,(im_sp[0],im_sp[1]))
-                    misc.imsave(dest_path,fake_img)
-                    index.write("<td>%s</td>" % os.path.basename(sample_paths[rr].decode('UTF-8')))
-                    index.write("<td><img src='%s'></td>" % (sample_paths[rr].decode('UTF-8')))
-                    index.write("<td><img src='%s'></td>" % (dest_path))
-                    index.write("</tr>")
+                    pred_sem_img = misc.imresize(np.squeeze(pred_sem_imgs[rr],axis=-1),(im_sp[0],im_sp[1]))
+                    misc.imsave(dest_path,pred_sem_img)
+                    
                 batch_num+=1
             except Exception as e:
                 print(e)
                 break;
 
         print('Elaboration complete')
-        index.close()
         coord.request_stop()
         coord.join(stop_grace_period_secs=10)
