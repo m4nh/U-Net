@@ -48,6 +48,8 @@ class U_Net(object):
         self.test_images,self.test_path, self.test_sem_gt = tf.train.batch([immy_test,path_test,immy_test_sem],1,2,100)
          
         self.test_sem_pred = u_net_model(self.test_images,self.options, True, name = 'u_net')
+        self.test_sem_loss = self.criterionSem(self.test_sem_pred,self.test_sem_gt)
+        self.test_sem_loss_sum = tf.summary.scalar("val_sem_loss",self.test_sem_loss) 
 
     def build_input_image_op(self,dir,is_test=False, num_epochs=None):
         def _parse_function(image_tensor):
@@ -129,7 +131,7 @@ class U_Net(object):
 
         summary_op = tf.summary.merge_all()
 
-        counter = 0
+        self.counter = 0
         start_time = time.time()
 
         if self.load(args.checkpoint_dir):
@@ -142,7 +144,7 @@ class U_Net(object):
         print('Thread running')
 
         #print(self.sess.run(self.sem_loss))
-        for epoch in range(args.epoch):
+        for epoch in range(self.counter//self.num_sample, args.epoch):
             print('Start epoch: {}'.format(epoch))
             batch_idxs = args.num_sample
 
@@ -151,16 +153,16 @@ class U_Net(object):
                 # Update network
                 self.sess.run([self.u_net_optim])
                 
-                counter += 1
+                self.counter += 1
                 print(("Epoch: [%2d] [%4d/%4d] time: %4.4f" \
                        % (epoch, idx, batch_idxs, time.time() - start_time)))
 
-                if np.mod(counter, 10) == 1:
+                if np.mod(self.counter, 200) == 1:
                     summary_string = self.sess.run(summary_op)
-                    self.writer.add_summary(summary_string,counter)
+                    self.writer.add_summary(summary_string,self.counter)
 
-                if np.mod(counter, 1000) == 2:
-                    self.save(args.checkpoint_dir, counter)
+                if np.mod(self.counter, 1000) == 2:
+                    self.save(args.checkpoint_dir, self.counter)
 
         coord.request_stop()
         coord.join(stop_grace_period_secs=10)
@@ -207,6 +209,9 @@ class U_Net(object):
 
         ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
         if ckpt and ckpt.model_checkpoint_path:
+            q = ckpt.model_checkpoint_path.split("-")[-1]
+            print("Restored step: ", q)
+            self.counter= int(q) 
             savvy = tf.train.Saver(var_list=get_var_to_restore_list(ckpt.model_checkpoint_path))
             savvy.restore(self.sess, ckpt.model_checkpoint_path)
             return True
