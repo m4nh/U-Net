@@ -32,7 +32,7 @@ parser.add_argument('--flip', dest='flip', type=bool, default=False, help='if fl
 parser.add_argument('--phase', dest='phase', help='train, test', required=True, choices=['train','test'])
 
 parser.add_argument('--checkpoint_dir', dest='checkpoint_dir', default='./checkpoint', help='models are saved here')
-parser.add_argument('--test_dir', dest='test_dir', default='./test', help='test sample are saved here')
+parser.add_argument('--test_dir', dest='test_dir', default='./test/', help='test sample are saved here')
 
 parser.add_argument('--ngf', dest='ngf', type=int, default=32, help='# of filters in first conv layer')
 
