@@ -22,9 +22,7 @@ class U_Net(object):
 
         self.input_c_dim = args.input_nc
 
-        self.dataset_dir = args.dataset_dir
         self.with_flip=args.flip
-        self.dataset_name=self.dataset_dir.split('/')[-1]
 
         self.num_sample = args.num_sample
         self.num_sample_test = args.num_sample_test
@@ -33,7 +31,7 @@ class U_Net(object):
 
         self.input_list_train = args.input_list_train
         self.input_list_val_test = args.input_list_val_test
-        
+
         self.criterionSem = sem_criterion
         self.best = 0
 
