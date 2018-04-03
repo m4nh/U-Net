@@ -74,7 +74,7 @@ class U_Net(object):
         samples=[]
         samples_sem = []
         for line in input_list_txt:
-            sample, sample_sem = line.strip().split("\t")
+            sample, sample_sem = line.strip().split(";")
             samples.append(sample)
             sample_sem.append(sample_sem)
 
