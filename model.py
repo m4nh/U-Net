@@ -89,29 +89,21 @@ class U_Net(object):
 
         if not is_test:
             #resize to load_size
-            image = tf.image.resize_images(image,[self.load_size_h,self.load_size_w])
-            image_sem = tf.image.resize_images(image_sem, [self.load_size_h,self.load_size_w], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
-            
-            #crop fine_size
-            if(self.load_size_w - self.crop_size_w != 0):
-                crop_offset_w = tf.random_uniform((), minval=0, maxval=tf.shape(image)[1] - self.crop_size_w, dtype=tf.int32)
-            else:
-                crop_offset_w = 0
-            
-            if(self.load_size_h - self.crop_size_h != 0):
-                crop_offset_h = tf.random_uniform((), minval=0, maxval= tf.shape(image)[0]- self.crop_size_h, dtype=tf.int32)
-            else:
-                crop_offset_h = 0
+            # image = tf.image.resize_images(image,[self.load_size_h,self.load_size_w])
+            # image_sem = tf.image.resize_images(image_sem, [self.load_size_h,self.load_size_w], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
+              
+            crop_offset_w = tf.cond(tf.equal(tf.shape(image)[1]- self.crop_size_w,0), lambda : 0, lambda : tf.random_uniform((), minval=0, maxval= tf.shape(image)[1]- self.crop_size_w, dtype=tf.int32))
+            crop_offset_h = tf.cond(tf.equal(tf.shape(image)[0]- self.crop_size_h,0), lambda : 0, lambda : tf.random_uniform((), minval=0, maxval= tf.shape(image)[0]- self.crop_size_h, dtype=tf.int32))
 
-            
             image = tf.image.crop_to_bounding_box(image, crop_offset_h, crop_offset_w, self.crop_size_h, self.crop_size_w)          
             image_sem = tf.image.crop_to_bounding_box(image_sem, crop_offset_h, crop_offset_w, self.crop_size_h, self.crop_size_w)          
+            
             #random flip left right
             # if self.with_flip:
             #     image = tf.image.random_flip_left_right(image)
-        else:
-            image = tf.image.resize_images(image,[self.load_size_h,self.load_size_w])
-            image_sem = tf.image.resize_images(image_sem, [self.load_size_h,self.load_size_w], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
+        # else:
+        #     image = tf.image.resize_images(image,[self.load_size_h,self.load_size_w])
+        #     image_sem = tf.image.resize_images(image_sem, [self.load_size_h,self.load_size_w], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
             
         return image,image_path,im_shape, image_sem
     
@@ -301,4 +293,4 @@ class U_Net(object):
 
         print('Elaboration complete')
         coord.request_stop()
-        coord.join(stop_grace_period_secs=10)
+        coord.join(stop_grace_period_secs=30)

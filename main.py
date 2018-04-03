@@ -14,7 +14,7 @@ parser.add_argument('--batch_size', dest='batch_size', type=int, default=1, help
 parser.add_argument('--load_size_w', dest='load_size_w', type=int, default=2048, help='scale images to this size')
 parser.add_argument('--load_size_h', dest='load_size_h', type=int, default=1024, help='scale images to this size')
 
-parser.add_argument('--crop_size_w', dest='crop_size_w', type=int, default=2048, help='then crop to this size')
+parser.add_argument('--crop_size_w', dest='crop_size_w', type=int, default=1024, help='then crop to this size')
 parser.add_argument('--crop_size_h', dest='crop_size_h', type=int, default=1024, help='then crop to this size')
 
 parser.add_argument('--num_sample',dest='num_sample',type=int,default=2975,help='number of sample to process for 1 epoch')
