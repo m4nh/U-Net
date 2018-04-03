@@ -57,7 +57,31 @@ labels = [
     Label(  'bicycle'              , 33 ,       18 , 'vehicle'         , 7       , True         , False        , (119, 11, 32) ),
 ]
 
-trainId2Color = { label.trainId : label.color for label in labels }
+labels_encoding = [
+    #       name                     id    trainId   category            catId     hasInstances   ignoreInEval   color
+    Label(  'other'                , 255 ,     255 , 'void'   , 0       , False        , False       , (0  ,0  ,0  ) ),
+    Label(  'bicycle'              , 0 ,         0 , 'vehicle'         , 7       , True         , False        , (119, 11, 32) ),
+    Label(  'bridge'               , 1 ,         1 , 'construction'    , 2       , False        , True         , (150,100,100) ),
+    Label(  'building'             , 2 ,         2 , 'construction'    , 2       , False        , False        , ( 70, 70, 70) ),
+    Label(  'bus'                  , 3 ,         3 , 'vehicle'         , 7       , True         , False        , (  0, 60,100) ),
+    Label(  'car'                  , 4 ,         4 , 'vehicle'         , 7       , True         , False        , (  0,  0,142) ),
+    Label(  'fence'                , 5 ,         5 , 'construction'    , 2       , False        , False        , (190,153,153) ),
+    Label(  'motorcycle'           , 6 ,         6 , 'vehicle'         , 7       , True         , False        , (  0,  0,230) ),
+    Label(  'person'               , 7 ,         7 , 'human'           , 6       , True         , False        , (220, 20, 60) ),
+    Label(  'pole'                 , 8 ,         8 , 'object'          , 3       , False        , False        , (153,153,153) ),
+    Label(  'rider'                , 9 ,         9 , 'human'           , 6       , True         , False        , (255,  0,  0) ),
+    Label(  'road'                 , 10 ,        10 , 'flat'            , 1       , False        , False        , (128, 64,128) ),
+    Label(  'sidewalk'             , 11 ,       11 , 'flat'            , 1       , False        , False        , (244, 35,232) ),
+    Label(  'landscape'            , 12 ,       12 , 'sky'             , 5       , False        , False        , ( 70,130,180) ),
+    Label(  'vegetation'           , 13 ,       13 , 'nature'          , 4       , False        , False        , (107,142, 35) ),
+    Label(  'traffic light'        , 14 ,       14 , 'object'          , 3       , False        , False        , (250,170, 30) ),
+    Label(  'traffic sign'         , 15 ,       15 , 'object'          , 3       , False        , False        , (220,220,  0) ),
+    Label(  'truck'                , 16 ,       16 , 'vehicle'         , 7       , True         , False        , (  0,  0, 70) ),
+    Label(  'tunnel'               , 17 ,       17 , 'construction'    , 2       , False        , True         , (150,120, 90) ),
+    Label(  'wall'                 , 18 ,       18 , 'construction'    , 2       , False        , False        , (102,102,156) )
+]
+
+trainId2Color = { label.trainId : label.color for label in labels_encoding }
 
 def color(pred_sem, id2color=trainId2Color):
     p = tf.squeeze(tf.cast(pred_sem,tf.uint8), axis = -1)

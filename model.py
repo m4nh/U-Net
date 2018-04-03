@@ -73,10 +73,11 @@ class U_Net(object):
         
         samples=[]
         samples_sem = []
-        for line in input_list_txt:
-            sample, sample_sem = line.strip().split(";")
-            samples.append(sample)
-            sample_sem.append(sample_sem)
+        with open(input_list_txt) as input_list:
+            for line in input_list:
+                sample,sample_sem = line.strip().split(";")
+                samples.append(sample)
+                samples_sem.append(sample_sem)
 
         image_tensor = tf.constant(np.stack((samples, samples_sem), axis = -1))
 
