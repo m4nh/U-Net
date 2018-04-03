@@ -31,6 +31,9 @@ class U_Net(object):
         self.num_epochs = args.epoch
         self.num_classes = args.num_classes
 
+        self.input_list_train = args.input_list_train
+        self.input_list_val_test = args.input_list_val_test
+        
         self.criterionSem = sem_criterion
         self.best = 0
 
@@ -43,7 +46,7 @@ class U_Net(object):
             self.saver_best = tf.train.Saver(max_to_keep=2)
 
     def _build_model(self):
-        immy_a,_ ,_,immy_a_sem= self.build_input_image_op(os.path.join(self.dataset_dir,'train'),False)
+        immy_a,_ ,_,immy_a_sem= self.build_input_image_op(self.input_list_train,False)
 
         self.input_images, self.input_sem_gt = tf.train.shuffle_batch([immy_a,immy_a_sem],self.batch_size,100,30,8)
                  
@@ -51,7 +54,7 @@ class U_Net(object):
         self.sem_loss =  self.criterionSem(self.input_sem_pred,self.input_sem_gt,self.num_classes)
         self.sem_loss_sum = tf.summary.scalar("sem_loss",self.sem_loss,collections=["TRAINING_SCALAR"])
 
-        immy_val,path_val,_,immy_val_sem = self.build_input_image_op(os.path.join(self.dataset_dir,'val'),True)
+        immy_val,path_val,_,immy_val_sem = self.build_input_image_op(self.input_list_val_test,True)
         self.val_images,self.val_path, self.val_sem_gt = tf.train.batch([immy_val,path_val,immy_val_sem],1,8,50)   
         self.val_sem_pred = u_net_model(self.val_images,self.options, True, name = 'u_net')
         self.val_accuracy = accuracy_op(self.val_sem_pred, self.val_sem_gt)
@@ -60,7 +63,7 @@ class U_Net(object):
         self.val_sem_accuracy_sum = tf.summary.scalar("accuracy",self.accuracy_placeholder, collections=["VALIDATION_SCALAR"])
             
 
-    def build_input_image_op(self,dir,is_test=False, num_epochs=None):
+    def build_input_image_op(self,input_list_txt,is_test=False, num_epochs=None):
         def _parse_function(image_tensor):
             image = tf.read_file(image_tensor[0])
             image_sem = tf.read_file(image_tensor[1])
@@ -69,9 +72,13 @@ class U_Net(object):
             image.set_shape([None, None, self.input_c_dim])
             image_sem.set_shape([None, None,1])
             return image , image_tensor[0], image_sem
-
-        samples = [os.path.join(dir, s) for s in os.listdir(dir)]
-        samples_sem = [os.path.join(dir+ "Sem",s.split("/")[-1]) for s in samples]
+        
+        samples=[]
+        samples_sem = []
+        for line in input_list_txt:
+            sample, sample_sem = line.strip().split("\t")
+            samples.append(sample)
+            sample_sem.append(sample_sem)
 
         image_tensor = tf.constant(np.stack((samples, samples_sem), axis = -1))
 
@@ -247,7 +254,7 @@ class U_Net(object):
 
     def test(self, args):
         """Test""" 
-        sample_op, sample_path,im_shape,sample_op_sem = self.build_input_image_op(args.dataset_dir,is_test=True,num_epochs=1)
+        sample_op, sample_path,im_shape,sample_op_sem = self.build_input_image_op(args.input_list_val_test,is_test=True,num_epochs=1)
         sample_batch,path_batch,im_shapes,sample_sem_batch = tf.train.batch([sample_op,sample_path,im_shape,sample_op_sem],batch_size=self.batch_size,num_threads=4,capacity=self.batch_size*50,allow_smaller_final_batch=True)
                
         sem_images = u_net_model(sample_batch, self.options,name='u_net')

@@ -6,7 +6,8 @@ import tensorflow as tf
 from model import U_Net
 
 parser = argparse.ArgumentParser(description='')
-parser.add_argument('--dataset_dir', dest='dataset_dir', default='./Cityscapes', help='path of the dataset, subfolder required train trainSem val valSem')
+parser.add_argument('--input_list_train', dest='input_list_train', default='input_list_train.txt', help='path of the input pair, image\\timage_sem')
+parser.add_argument('--input_list_val_test', dest='input_list_val_test', default='input_list_val_test.txt', help='path of the input pair for validation or testing, image\\timage_sem')
 
 parser.add_argument('--epoch', dest='epoch', type=int, default=200, help='# of epoch')
 parser.add_argument('--batch_size', dest='batch_size', type=int, default=1, help='# images in batch')
