@@ -45,7 +45,6 @@ class U_Net(object):
 
     def _build_model(self):
         immy_a,_ ,_,immy_a_sem= self.build_input_image_op(self.input_list_train,False)
-
         self.input_images, self.input_sem_gt = tf.train.shuffle_batch([immy_a,immy_a_sem],self.batch_size,100,30,8)
                  
         self.input_sem_pred = u_net_model(self.input_images,self.options, False, name = 'u_net')
@@ -53,7 +52,8 @@ class U_Net(object):
         self.sem_loss_sum = tf.summary.scalar("sem_loss",self.sem_loss,collections=["TRAINING_SCALAR"])
 
         immy_val,path_val,_,immy_val_sem = self.build_input_image_op(self.input_list_val_test,True)
-        self.val_images,self.val_path, self.val_sem_gt = tf.train.batch([immy_val,path_val,immy_val_sem],1,8,50)   
+
+        self.val_images,self.val_path, self.val_sem_gt = [tf.expand_dims(immy_val,axis=0),tf.expand_dims(path_val,axis=0),tf.expand_dims(immy_val_sem,axis=0)]
         self.val_sem_pred = u_net_model(self.val_images,self.options, True, name = 'u_net')
         self.val_accuracy = accuracy_op(self.val_sem_pred, self.val_sem_gt)
 
@@ -67,23 +67,27 @@ class U_Net(object):
             image_sem = tf.read_file(image_tensor[1])
             image = tf.image.decode_image(image, channels = 3)
             image_sem = tf.image.decode_image( image_sem , channels = 1)
+            image.set_shape([None,None,3])
+            image_sem.set_shape([None,None,1])
             return image , image_tensor[0], image_sem
         
         samples=[]
         samples_sem = []
         
-        with open(input_list_txt) as input_list:
+        with open(input_list_txt, "r") as input_list:
             for line in input_list:
                 sample,sample_sem = line.strip().split(";")
-                samples.append(sample)
-                samples_sem.append(sample_sem)
-        print(samples[0],samples_sem[0])
-        image_tensor = tf.constant(np.stack((samples, samples_sem), axis = -1))
+                samples.append(sample.strip())
+                samples_sem.append(sample_sem.strip())
 
+        inputs = np.stack((samples, samples_sem), axis = -1)
+        
+        image_tensor = tf.constant(inputs, tf.string)
         dataset = tf.data.Dataset.from_tensor_slices(image_tensor)
         dataset = dataset.map(_parse_function)
         dataset = dataset.repeat()
         iterator = dataset.make_one_shot_iterator()
+        
         image , image_path, image_sem = iterator.get_next()
         
         im_shape= tf.shape(image)
@@ -91,7 +95,6 @@ class U_Net(object):
         #change range of value o [-1,1]
         image = tf.image.convert_image_dtype(image,tf.float32)
         image = (image*2)-1
-
         if not is_test:
             #resize to load_size
             # image = tf.image.resize_images(image,[self.load_size_h,self.load_size_w])
@@ -102,17 +105,19 @@ class U_Net(object):
 
             image = tf.image.crop_to_bounding_box(image, crop_offset_h, crop_offset_w, self.crop_size_h, self.crop_size_w)          
             image_sem = tf.image.crop_to_bounding_box(image_sem, crop_offset_h, crop_offset_w, self.crop_size_h, self.crop_size_w)          
-            
+            image.set_shape([None,None,3])
+            image_sem.set_shape([None,None,1])
+
             #random flip left right
             # if self.with_flip:
             #     image = tf.image.random_flip_left_right(image)
         # else:
         #     image = tf.image.resize_images(image,[self.load_size_h,self.load_size_w])
         #     image_sem = tf.image.resize_images(image_sem, [self.load_size_h,self.load_size_w], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
-            
+
         return image,image_path,im_shape, image_sem
     
-    def accuracy_validation(self,agrs):
+    def accuracy_validation(self,args):
         mean_acc = 0
         for idx in range(self.num_sample_test):
             print("Evaluating accuracy on validation set", idx + 1 ,"/", self.num_sample_test, end= '\r' if idx != self.num_sample_test - 1 else '\n')
@@ -129,7 +134,6 @@ class U_Net(object):
         #summaries for training
         in_pred = tf.expand_dims(tf.argmax(self.input_sem_pred , axis=-1), axis =-1)
         val_pred = tf.expand_dims(tf.argmax(self.val_sem_pred , axis=-1), axis =-1)
-
         
         tf.summary.image('train',self.input_images,max_outputs=1,collections=["TRAINING_IMAGES"])
         tf.summary.image('train sem gt',color(self.input_sem_gt),max_outputs=1,collections=["TRAINING_IMAGES"])
@@ -143,11 +147,11 @@ class U_Net(object):
         summary_scalar_val_op = tf.summary.merge(tf.get_collection("VALIDATION_SCALAR"))
         summary_images_train_op = tf.summary.merge(tf.get_collection("TRAINING_IMAGES"))
         summary_images_val_op = tf.summary.merge(tf.get_collection("VALIDATION_IMAGES"))
-
+        
         init_op = [tf.global_variables_initializer(),tf.local_variables_initializer()]
         self.sess.run(init_op)
         self.writer = tf.summary.FileWriter(args.checkpoint_dir, self.sess.graph)
-
+        
         self.counter = 0
         start_time = time.time()
         coord = tf.train.Coordinator()
@@ -252,12 +256,10 @@ class U_Net(object):
 
     def test(self, args):
         """Test""" 
-        sample_op, sample_path,im_shape,sample_op_sem = self.build_input_image_op(args.input_list_val_test,is_test=True,num_epochs=1)
-        sample_batch,path_batch,im_shapes,sample_sem_batch = tf.train.batch([sample_op,sample_path,im_shape,sample_op_sem],batch_size=self.batch_size,num_threads=4,capacity=self.batch_size*50,allow_smaller_final_batch=True)
-               
-        sem_images = u_net_model(sample_batch, self.options,name='u_net')
+        sample_op, sample_path,im_shape,sample_op_sem = self.build_input_image_op(args.input_list_val_test,is_test=True,num_epochs=1)               
+        sem_images = u_net_model(sample_op, self.options,name='u_net')
         
-        sem_images_out = tf.argmax(sem_images, axis=-1, name="prediction")
+        sem_images_out = tf.argmax(sample_op_sem, axis=-1, name="prediction")
         sem_images_out = tf.cast(tf.expand_dims(sem_images_out, axis=-1),tf.uint8)
         
         #init everything

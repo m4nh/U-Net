@@ -87,7 +87,7 @@ def color(pred_sem, id2color=trainId2Color):
     p = tf.squeeze(tf.cast(pred_sem,tf.uint8), axis = -1)
     p = tf.stack([p,p,p],axis=-1)
     m = tf.zeros_like(p)
-    for i in range(len(trainId2Color.keys())):
+    for i in range(len(trainId2Color.keys()) - 1):
         mi = tf.multiply(tf.ones_like(p), trainId2Color[i])
         m = tf.where(tf.equal(p,i), mi, m)
     return m
