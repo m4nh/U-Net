@@ -2,7 +2,7 @@ from __future__ import division
 import tensorflow as tf
 from ops import *
 
-def u_net_model(image, options, reuse=False, name="U-Net"):
+def u_net_model(image, options, reuse=False, name="U-Net", is_test=False):
 
     with tf.variable_scope(name):
         # image is 256 x 256 x input_c_dim
@@ -28,17 +28,22 @@ def u_net_model(image, options, reuse=False, name="U-Net"):
         # e7 is (2 x 2 x self.gf_dim*8)
         e8 = instance_norm(conv2d(lrelu(e7), options.gf_dim*8, name='g_e8_conv'), 'g_bn_e8')
         # e8 is (1 x 1 x self.gf_dim*8)
+        
+        probkeep_dropout= 0.5
+        if is_test:
+            probkeep_dropout=1
+        
 
         d1 = deconv2d(tf.nn.relu(e8), options.gf_dim*8, name='g_d1')
-        d1 = tf.concat([tf.nn.dropout(instance_norm(d1, 'g_bn_d1'), 0.5), e7], 3)
+        d1 = tf.concat([tf.nn.dropout(instance_norm(d1, 'g_bn_d1'), probkeep_dropout), e7], 3)
         # d1 is (2 x 2 x self.gf_dim*8*2)
 
         d2 = deconv2d(tf.nn.relu(d1), options.gf_dim*8, name='g_d2')
-        d2 = tf.concat([tf.nn.dropout(instance_norm(d2, 'g_bn_d2'), 0.5), e6], 3)
+        d2 = tf.concat([tf.nn.dropout(instance_norm(d2, 'g_bn_d2'), probkeep_dropout), e6], 3)
         # d2 is (4 x 4 x self.gf_dim*8*2)
 
         d3 = deconv2d(tf.nn.relu(d2), options.gf_dim*8, name='g_d3')
-        d3 = tf.concat([tf.nn.dropout(instance_norm(d3, 'g_bn_d3'), 0.5), e5], 3)
+        d3 = tf.concat([tf.nn.dropout(instance_norm(d3, 'g_bn_d3'), probkeep_dropout), e5], 3)
         # d3 is (8 x 8 x self.gf_dim*8*2)
 
         d4 = deconv2d(tf.nn.relu(d3), options.gf_dim*8, name='g_d4')

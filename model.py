@@ -54,7 +54,7 @@ class U_Net(object):
         immy_val,path_val,_,immy_val_sem = self.build_input_image_op(self.input_list_val_test,True)
 
         self.val_images,self.val_path, self.val_sem_gt = [tf.expand_dims(immy_val,axis=0),tf.expand_dims(path_val,axis=0),tf.expand_dims(immy_val_sem,axis=0)]
-        self.val_sem_pred = u_net_model(self.val_images,self.options, True, name = 'u_net')
+        self.val_sem_pred = u_net_model(self.val_images,self.options, True, name = 'u_net',is_test=True)
         self.val_accuracy = accuracy_op(self.val_sem_pred, self.val_sem_gt)
 
         self.accuracy_placeholder = tf.placeholder(tf.float32)
@@ -174,12 +174,10 @@ class U_Net(object):
         while self.counter <= self.num_epochs*self.num_sample:
             # Update network
             loss , _ = self.sess.run([self.sem_loss, self.u_net_optim])
-            self.counter += self.batch_size
-
             print(("Epoch: [%2d/%2d] [%4d/%4d] Loss: [%.4f] Total time: %4.4f" \
                     % (self.counter//self.num_sample, self.num_epochs, self.counter%self.num_sample, self.num_sample, loss ,time.time() - start_time)))
             
-            if np.mod(self.counter, self.num_sample) == 0 and self.counter !=0:
+            if (self.counter // self.num_sample) < ((self.counter + self.batch_size)//self.num_sample) and self.counter !=0:
                 mean_acc = self.accuracy_validation(args)
                 if mean_acc >= self.best:      
                     print("Accuracy step ", self.counter, ": " , mean_acc, " old best: " , self.best)             
@@ -191,23 +189,25 @@ class U_Net(object):
                 self.writer.add_summary(summary_string,self.counter)
                 self.save(self.saver,args.checkpoint_dir, self.counter)
             
-            if self.counter % 100 == 0:
+            if self.counter % (30*self.batch_size) == 0 and self.counter!=0:
                 summary_string1, summary_string2 = self.sess.run([summary_images_train_op,summary_images_val_op])
                 self.writer.add_summary(summary_string1,self.counter)
                 self.writer.add_summary(summary_string2,self.counter)
             
-            if self.counter % 10 == 0:
+            if self.counter % (1*self.batch_size) == 0 and self.counter!=0:
                 summary_string = self.sess.run(summary_scalar_train_op)
                 self.writer.add_summary(summary_string,self.counter)
             
-            if np.mod(self.counter, 1000) == 0 and self.counter !=0:
+            if np.mod(self.counter, 100*self.batch_size) == 0 and self.counter !=0:
                 self.save(self.saver,args.checkpoint_dir, self.counter)
+            
+            self.counter += self.batch_size
 
         coord.request_stop()
         coord.join(stop_grace_period_secs=10)
 
     def save(self, saver, checkpoint_dir, step):
-        model_name = "U-Net" + self.dataset_dir.split("/")[-1]
+        model_name = "U-Net"
         saver.save(self.sess,os.path.join(checkpoint_dir, model_name),global_step=step)
 
     def load(self, checkpoint_dir):
@@ -257,9 +257,10 @@ class U_Net(object):
     def test(self, args):
         """Test""" 
         sample_op, sample_path,im_shape,sample_op_sem = self.build_input_image_op(args.input_list_val_test,is_test=True,num_epochs=1)               
-        sem_images = u_net_model(sample_op, self.options,name='u_net')
+        sample_op, sample_path,im_shape,sample_op_sem = tf.expand_dims(sample_op,axis=0), tf.expand_dims(sample_path,axis=0) , tf.expand_dims(im_shape,axis=0), tf.expand_dims(sample_op_sem,axis=0)
         
-        sem_images_out = tf.argmax(sample_op_sem, axis=-1, name="prediction")
+        sem_images = u_net_model(sample_op, self.options,name='u_net',is_test=True)
+        sem_images_out = tf.argmax(sem_images, axis=-1, name="prediction")
         sem_images_out = tf.cast(tf.expand_dims(sem_images_out, axis=-1),tf.uint8)
         
         #init everything
@@ -280,10 +281,10 @@ class U_Net(object):
             os.makedirs(args.test_dir)
 
         print('Starting')
-        batch_num=0
-        while batch_num*args.batch_size <= args.num_sample_test:
-            print('Processed images: {}'.format(batch_num), end='\n')
-            pred_sem_imgs,sample_images,sample_paths,im_sps, sem_gt = self.sess.run([sem_images_out,sample_batch,path_batch,im_shapes,sample_sem_batch])
+        count=0
+        while count <= args.num_sample_test:
+            print('Processed images: {}'.format(count), end='\r')
+            pred_sem_imgs,sample_images,sample_paths,im_sps, sem_gt = self.sess.run([sem_images_out,sample_op,sample_path,im_shape,sample_op_sem])
             #iterate over each sample in the batch
             #create output destination
             print(sample_paths[0])
@@ -296,7 +297,7 @@ class U_Net(object):
             pred_sem_img = misc.imresize(np.squeeze(pred_sem_imgs[0],axis=-1),(im_sp[0],im_sp[1]))
             misc.imsave(dest_path,pred_sem_img)
             
-            batch_num+=1
+            count+=1
 
         print('Elaboration complete')
         coord.request_stop()
