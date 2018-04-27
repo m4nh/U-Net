@@ -89,7 +89,6 @@ class U_Net(object):
         iterator = dataset.make_one_shot_iterator()
         
         image , image_path, image_sem = iterator.get_next()
-        
         im_shape= tf.shape(image)
 
         #change range of value o [-1,1]
@@ -111,7 +110,17 @@ class U_Net(object):
             #random flip left right
             # if self.with_flip:
             #     image = tf.image.random_flip_left_right(image)
-        # else:
+        else:
+            tmp = (256  - im_shape[0] % 256) 
+            pad_up = tmp//2
+            pad_down =  tmp -  tmp//2
+            tmp = (256  - im_shape[1] % 256) 
+            pad_left = tmp//2
+            pad_right =  tmp -  tmp//2
+            image = tf.pad(image,[[pad_up,pad_down],[pad_left,pad_right],[0,0]],"REFLECT")
+            image_sem = tf.pad(image,[[pad_up,pad_down],[pad_left,pad_right],[0,0]],"REFLECT")
+            image.set_shape([None,None,3])
+            image_sem.set_shape([None,None,1])
         #     image = tf.image.resize_images(image,[self.load_size_h,self.load_size_w])
         #     image_sem = tf.image.resize_images(image_sem, [self.load_size_h,self.load_size_w], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
 
