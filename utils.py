@@ -81,7 +81,7 @@ labels_encoding = [
     Label(  'wall'                 , 18 ,       18 , 'construction'    , 2       , False        , False        , (102,102,156) )
 ]
 
-trainId2Color = { label.trainId : label.color for label in labels_encoding }
+trainId2Color = { label.trainId : label.color for label in labels }
 
 def color(pred_sem, id2color=trainId2Color):
     p = tf.squeeze(tf.cast(pred_sem,tf.uint8), axis = -1)

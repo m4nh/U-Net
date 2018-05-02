@@ -51,7 +51,7 @@ class U_Net(object):
         self.sem_loss =  self.criterionSem(self.input_sem_pred,self.input_sem_gt,self.num_classes)
         self.sem_loss_sum = tf.summary.scalar("sem_loss",self.sem_loss,collections=["TRAINING_SCALAR"])
 
-        immy_val,path_val,_,immy_val_sem = self.build_input_image_op(self.input_list_val_test,True)
+        immy_val,path_val,_,immy_val_sem = self.build_input_image_op(self.input_list_val_test,is_val=True)
 
         self.val_images,self.val_path, self.val_sem_gt = [tf.expand_dims(immy_val,axis=0),tf.expand_dims(path_val,axis=0),tf.expand_dims(immy_val_sem,axis=0)]
         self.val_sem_pred = u_net_model(self.val_images,self.options, True, name = 'u_net',is_test=True)
@@ -61,7 +61,7 @@ class U_Net(object):
         self.val_sem_accuracy_sum = tf.summary.scalar("accuracy",self.accuracy_placeholder, collections=["VALIDATION_SCALAR"])
             
 
-    def build_input_image_op(self,input_list_txt,is_test=False, num_epochs=None):
+    def build_input_image_op(self,input_list_txt,is_test=False,is_val=False, num_epochs=None):
         def _parse_function(image_tensor):
             image = tf.read_file(image_tensor[0])
             image_sem = tf.read_file(image_tensor[1])
@@ -94,7 +94,7 @@ class U_Net(object):
         #change range of value o [-1,1]
         image = tf.image.convert_image_dtype(image,tf.float32)
         image = (image*2)-1
-        if not is_test:
+        if not is_test and not is_val:
             #resize to load_size
             # image = tf.image.resize_images(image,[self.load_size_h,self.load_size_w])
             # image_sem = tf.image.resize_images(image_sem, [self.load_size_h,self.load_size_w], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
@@ -110,7 +110,7 @@ class U_Net(object):
             #random flip left right
             # if self.with_flip:
             #     image = tf.image.random_flip_left_right(image)
-        else:
+        elif is_test:
             tmp = (256  - im_shape[0] % 256) 
             pad_up = tmp//2
             pad_down =  tmp -  tmp//2
