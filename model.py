@@ -17,8 +17,8 @@ class U_Net(object):
 
         self.crop_size_w = args.crop_size_w
         self.crop_size_h = args.crop_size_h
-        self.load_size_w = args.load_size_w
-        self.load_size_h = args.load_size_h
+        # self.load_size_w = args.load_size_w
+        # self.load_size_h = args.load_size_h
 
         self.input_c_dim = args.input_nc
 
