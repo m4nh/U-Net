@@ -101,7 +101,6 @@ class U_Net(object):
               
             crop_offset_w = tf.cond(tf.equal(tf.shape(image)[1]- self.crop_size_w,0), lambda : 0, lambda : tf.random_uniform((), minval=0, maxval= tf.shape(image)[1]- self.crop_size_w, dtype=tf.int32))
             crop_offset_h = tf.cond(tf.equal(tf.shape(image)[0]- self.crop_size_h,0), lambda : 0, lambda : tf.random_uniform((), minval=0, maxval= tf.shape(image)[0]- self.crop_size_h, dtype=tf.int32))
-
             image = tf.image.crop_to_bounding_box(image, crop_offset_h, crop_offset_w, self.crop_size_h, self.crop_size_w)          
             image_sem = tf.image.crop_to_bounding_box(image_sem, crop_offset_h, crop_offset_w, self.crop_size_h, self.crop_size_w)          
             image.set_shape([None,None,3])
@@ -118,7 +117,7 @@ class U_Net(object):
             pad_left = tmp//2
             pad_right =  tmp -  tmp//2
             image = tf.pad(image,[[pad_up,pad_down],[pad_left,pad_right],[0,0]],"REFLECT")
-            image_sem = tf.pad(image,[[pad_up,pad_down],[pad_left,pad_right],[0,0]],"REFLECT")
+            image_sem = tf.pad(image_sem,[[pad_up,pad_down],[pad_left,pad_right],[0,0]],"REFLECT")
             image.set_shape([None,None,3])
             image_sem.set_shape([None,None,1])
         #     image = tf.image.resize_images(image,[self.load_size_h,self.load_size_w])
@@ -162,7 +161,7 @@ class U_Net(object):
         self.writer = tf.summary.FileWriter(args.checkpoint_dir, self.sess.graph)
         
         self.counter = 0
-        start_time = time.time()
+        
         coord = tf.train.Coordinator()
         tf.train.start_queue_runners()
         print('Thread running')
@@ -182,9 +181,13 @@ class U_Net(object):
         
         while self.counter <= self.num_epochs*self.num_sample:
             # Update network
+            start_time = time.time()
             loss , _ = self.sess.run([self.sem_loss, self.u_net_optim])
-            print(("Epoch: [%2d/%2d] [%4d/%4d] Loss: [%.4f] Total time: %4.4f" \
-                    % (self.counter//self.num_sample, self.num_epochs, self.counter%self.num_sample, self.num_sample, loss ,time.time() - start_time)))
+            ops_time = time.time() - start_time
+            time_left=(self.num_epochs*self.num_sample - self.counter)*ops_time
+
+            print(("Epoch: [%2d/%2d] [%4d/%4d] Loss: [%.4f] Total time: %4.4f min" \
+                    % (self.counter//self.num_sample, self.num_epochs, self.counter%self.num_sample, self.num_sample, loss , time_left/60)))
             
             if (self.counter // self.num_sample) < ((self.counter + self.batch_size)//self.num_sample) and self.counter !=0:
                 mean_acc = self.accuracy_validation(args)
