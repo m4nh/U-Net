@@ -6,6 +6,7 @@ import numpy as np
 from six.moves import xrange
 from collections import namedtuple
 from scipy import misc
+import datetime
 
 from module import *
 from utils import color
@@ -186,8 +187,8 @@ class U_Net(object):
             ops_time = time.time() - start_time
             time_left=(self.num_epochs*self.num_sample - self.counter)*ops_time
 
-            print(("Epoch: [%2d/%2d] [%4d/%4d] Loss: [%.4f] Total time: %4.4f min" \
-                    % (self.counter//self.num_sample, self.num_epochs, self.counter%self.num_sample, self.num_sample, loss , time_left/60)))
+            print(("Epoch: [%2d/%2d] [%4d/%4d] Loss: [%.4f] Total time: %s" \
+                    % (self.counter//self.num_sample, self.num_epochs, self.counter%self.num_sample, self.num_sample, loss , datetime.timedelta(seconds=time_left))))
             
             if (self.counter // self.num_sample) < ((self.counter + self.batch_size)//self.num_sample) and self.counter !=0:
                 mean_acc = self.accuracy_validation(args)
