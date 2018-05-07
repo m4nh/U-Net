@@ -180,15 +180,12 @@ class U_Net(object):
         else:
             print(" [!] Load failed...")
         
+        total_time= 0
         while self.counter <= self.num_epochs*self.num_sample:
             # Update network
             start_time = time.time()
             loss , _ = self.sess.run([self.sem_loss, self.u_net_optim])
-            ops_time = time.time() - start_time
-            time_left=(self.num_epochs*self.num_sample - self.counter)*ops_time
-
-            print(("Epoch: [%2d/%2d] [%4d/%4d] Loss: [%.4f] Time left: %s" \
-                    % (self.counter//self.num_sample, self.num_epochs, self.counter%self.num_sample, self.num_sample, loss , datetime.timedelta(seconds=time_left))))
+            
             
             if (self.counter // self.num_sample) < ((self.counter + self.batch_size)//self.num_sample) and self.counter !=0:
                 mean_acc = self.accuracy_validation(args)
@@ -215,6 +212,11 @@ class U_Net(object):
                 self.save(self.saver,args.checkpoint_dir, self.counter)
             
             self.counter += self.batch_size
+            
+            total_time += time.time() - start_time
+            time_left=(self.num_epochs*self.num_sample - self.counter)*total_time/self.counter
+            print(("Epoch: [%2d/%2d] [%4d/%4d] Loss: [%.4f] Time left: %s" \
+                        % (self.counter//self.num_sample, self.num_epochs, self.counter%self.num_sample, self.num_sample, loss , datetime.timedelta(seconds=time_left)))) 
 
         coord.request_stop()
         coord.join(stop_grace_period_secs=10)
