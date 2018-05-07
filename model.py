@@ -187,7 +187,7 @@ class U_Net(object):
             ops_time = time.time() - start_time
             time_left=(self.num_epochs*self.num_sample - self.counter)*ops_time
 
-            print(("Epoch: [%2d/%2d] [%4d/%4d] Loss: [%.4f] Total time: %s" \
+            print(("Epoch: [%2d/%2d] [%4d/%4d] Loss: [%.4f] Time left: %s" \
                     % (self.counter//self.num_sample, self.num_epochs, self.counter%self.num_sample, self.num_sample, loss , datetime.timedelta(seconds=time_left))))
             
             if (self.counter // self.num_sample) < ((self.counter + self.batch_size)//self.num_sample) and self.counter !=0:

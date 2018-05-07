@@ -42,8 +42,9 @@ args = parser.parse_args()
 def main(_):
     if not os.path.exists(args.checkpoint_dir):
         os.makedirs(args.checkpoint_dir)
-
-    with tf.Session() as sess:
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    with tf.Session(config=config) as sess:
         model = U_Net(sess, args)
         if args.phase == 'train':
             model.train(args)
