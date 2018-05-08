@@ -309,7 +309,7 @@ class U_Net(object):
                 os.makedirs(parent_destination)
 
             im_sp = im_sps[0]
-            pred_sem_img = misc.imresize(np.squeeze(pred_sem_imgs[0],axis=-1),(im_sp[0],im_sp[1]))
+            pred_sem_img = misc.imresize(np.squeeze(pred_sem_imgs[0],axis=-1),(im_sp[0],im_sp[1]),interp='nearest')
             misc.imsave(dest_path,pred_sem_img)
             
             count+=1
