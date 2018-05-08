@@ -111,10 +111,10 @@ class U_Net(object):
             # if self.with_flip:
             #     image = tf.image.random_flip_left_right(image)
         elif is_test:
-            tmp = (256  - im_shape[0] % 256) 
+            tmp = (256  - im_shape[0] % 256) % 256
             pad_up = tmp//2
             pad_down =  tmp -  tmp//2
-            tmp = (256  - im_shape[1] % 256) 
+            tmp = (256  - im_shape[1] % 256) % 256
             pad_left = tmp//2
             pad_right =  tmp -  tmp//2
             image = tf.pad(image,[[pad_up,pad_down],[pad_left,pad_right],[0,0]],"REFLECT")
@@ -309,7 +309,7 @@ class U_Net(object):
                 os.makedirs(parent_destination)
 
             im_sp = im_sps[0]
-            pred_sem_img = misc.imresize(np.squeeze(pred_sem_imgs[0],axis=-1),(im_sp[0],im_sp[1]),interp='nearest')
+            pred_sem_img = np.squeeze(pred_sem_imgs[0],axis=-1)
             misc.imsave(dest_path,pred_sem_img)
             
             count+=1
