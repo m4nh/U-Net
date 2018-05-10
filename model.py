@@ -6,6 +6,7 @@ import numpy as np
 from six.moves import xrange
 from collections import namedtuple
 from scipy import misc
+import datetime
 
 from module import *
 from utils import color
@@ -18,8 +19,8 @@ class U_Net(object):
 
         self.crop_size_w = args.crop_size_w
         self.crop_size_h = args.crop_size_h
-        self.load_size_w = args.load_size_w
-        self.load_size_h = args.load_size_h
+        # self.load_size_w = args.load_size_w
+        # self.load_size_h = args.load_size_h
 
         self.input_c_dim = args.input_nc
 
@@ -59,7 +60,7 @@ class U_Net(object):
             "sem_loss", self.sem_loss, collections=["TRAINING_SCALAR"])
 
         immy_val, path_val, _, immy_val_sem = self.build_input_image_op(
-            self.input_list_val_test, True)
+            self.input_list_val_test, is_val=True)
 
         self.val_images, self.val_path, self.val_sem_gt = [tf.expand_dims(
             immy_val, axis=0), tf.expand_dims(path_val, axis=0), tf.expand_dims(immy_val_sem, axis=0)]
@@ -71,7 +72,7 @@ class U_Net(object):
         self.val_sem_accuracy_sum = tf.summary.scalar(
             "accuracy", self.accuracy_placeholder, collections=["VALIDATION_SCALAR"])
 
-    def build_input_image_op(self, input_list_txt, is_test=False, num_epochs=None):
+    def build_input_image_op(self, input_list_txt, is_test=False, is_val=False, num_epochs=None):
         def _parse_function(image_tensor):
             image = tf.read_file(image_tensor[0])
             image_sem = tf.read_file(image_tensor[1])
@@ -99,13 +100,16 @@ class U_Net(object):
         iterator = dataset.make_one_shot_iterator()
 
         image, image_path, image_sem = iterator.get_next()
+        im_shape = tf.shape(image)
+
+        image, image_path, image_sem = iterator.get_next()
 
         im_shape = tf.shape(image)
 
         # change range of value o [-1,1]
         image = tf.image.convert_image_dtype(image, tf.float32)
         image = (image*2)-1
-        if not is_test:
+        if not is_test and not is_val:
             # resize to load_size
             # image = tf.image.resize_images(image,[self.load_size_h,self.load_size_w])
             # image_sem = tf.image.resize_images(image_sem, [self.load_size_h,self.load_size_w], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
@@ -114,7 +118,6 @@ class U_Net(object):
                 (), minval=0, maxval=tf.shape(image)[1] - self.crop_size_w, dtype=tf.int32))
             crop_offset_h = tf.cond(tf.equal(tf.shape(image)[0] - self.crop_size_h, 0), lambda: 0, lambda: tf.random_uniform(
                 (), minval=0, maxval=tf.shape(image)[0] - self.crop_size_h, dtype=tf.int32))
-
             image = tf.image.crop_to_bounding_box(
                 image, crop_offset_h, crop_offset_w, self.crop_size_h, self.crop_size_w)
             image_sem = tf.image.crop_to_bounding_box(
@@ -125,7 +128,19 @@ class U_Net(object):
             # random flip left right
             # if self.with_flip:
             #     image = tf.image.random_flip_left_right(image)
-        # else:
+        elif is_test:
+            tmp = (256 - im_shape[0] % 256) % 256
+            pad_up = tmp//2
+            pad_down = tmp - tmp//2
+            tmp = (256 - im_shape[1] % 256) % 256
+            pad_left = tmp//2
+            pad_right = tmp - tmp//2
+            image = tf.pad(image, [[pad_up, pad_down], [
+                           pad_left, pad_right], [0, 0]], "REFLECT")
+            image_sem = tf.pad(image_sem, [[pad_up, pad_down], [
+                               pad_left, pad_right], [0, 0]], "REFLECT")
+            image.set_shape([None, None, 3])
+            image_sem.set_shape([None, None, 1])
         #     image = tf.image.resize_images(image,[self.load_size_h,self.load_size_w])
         #     image_sem = tf.image.resize_images(image_sem, [self.load_size_h,self.load_size_w], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
 
@@ -182,7 +197,7 @@ class U_Net(object):
             args.checkpoint_dir, self.sess.graph)
 
         self.counter = 0
-        start_time = time.time()
+
         coord = tf.train.Coordinator()
         tf.train.start_queue_runners()
         print('Thread running')
@@ -200,11 +215,11 @@ class U_Net(object):
         else:
             print(" [!] Load failed...")
 
+        total_time = 0
         while self.counter <= self.num_epochs*self.num_sample:
             # Update network
+            start_time = time.time()
             loss, _ = self.sess.run([self.sem_loss, self.u_net_optim])
-            print(("Epoch: [%2d/%2d] [%4d/%4d] Loss: [%.4f] Total time: %4.4f"
-                   % (self.counter//self.num_sample, self.num_epochs, self.counter % self.num_sample, self.num_sample, loss, time.time() - start_time)))
 
             if (self.counter // self.num_sample) < ((self.counter + self.batch_size)//self.num_sample) and self.counter != 0:
                 mean_acc = self.accuracy_validation(args)
@@ -235,6 +250,12 @@ class U_Net(object):
                 self.save(self.saver, args.checkpoint_dir, self.counter)
 
             self.counter += self.batch_size
+
+            total_time += time.time() - start_time
+            time_left = (self.num_epochs*self.num_sample -
+                         self.counter)*total_time/self.counter
+            print(("Epoch: [%2d/%2d] [%4d/%4d] Loss: [%.4f] Time left: %s"
+                   % (self.counter//self.num_sample, self.num_epochs, self.counter % self.num_sample, self.num_sample, loss, datetime.timedelta(seconds=time_left))))
 
         coord.request_stop()
         coord.join(stop_grace_period_secs=10)
@@ -338,8 +359,7 @@ class U_Net(object):
                 os.makedirs(parent_destination)
 
             im_sp = im_sps[0]
-            pred_sem_img = misc.imresize(np.squeeze(
-                pred_sem_imgs[0], axis=-1), (im_sp[0], im_sp[1]))
+            pred_sem_img = np.squeeze(pred_sem_imgs[0], axis=-1)
             misc.imsave(dest_path, pred_sem_img)
 
             count += 1

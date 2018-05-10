@@ -16,10 +16,8 @@ parser.add_argument('--epoch', dest='epoch', type=int,
 parser.add_argument('--batch_size', dest='batch_size',
                     type=int, default=1, help='# images in batch')
 
-parser.add_argument('--load_size_w', dest='load_size_w',
-                    type=int, default=2048, help='scale images to this size')
-parser.add_argument('--load_size_h', dest='load_size_h',
-                    type=int, default=1024, help='scale images to this size')
+# parser.add_argument('--load_size_w', dest='load_size_w', type=int, default=2048, help='scale images to this size')
+# parser.add_argument('--load_size_h', dest='load_size_h', type=int, default=1024, help='scale images to this size')
 
 parser.add_argument('--crop_size_w', dest='crop_size_w',
                     type=int, default=1024, help='then crop to this size')
@@ -63,8 +61,9 @@ args = parser.parse_args()
 def main(_):
     if not os.path.exists(args.checkpoint_dir):
         os.makedirs(args.checkpoint_dir)
-
-    with tf.Session() as sess:
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    with tf.Session(config=config) as sess:
         model = U_Net(sess, args)
         if args.phase == 'train':
             model.train(args)
